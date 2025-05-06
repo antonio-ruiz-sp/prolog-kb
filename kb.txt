@@ -1,0 +1,8 @@
+[
+	class(top, none, [], [], []),
+	class(aves, top, [vuelan], [], []),
+	class(peces, top, [nadan], [], []),
+	class(mamiferos, top, [], [], []),
+	class(aguilas, aves, [], [], [[id=>pedro, [tam=>'-'], [not(amigo=>arturo)]]]),
+	class(pinguinos, aves, [], [], [[id=>arturo, [], [amigo=>pedro]]])
+]
