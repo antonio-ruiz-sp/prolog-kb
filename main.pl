@@ -84,8 +84,17 @@ ejemplo:-
 %---------------------------------------------------------------------------
 
 %-------------------------------------------------------
+% Predicados auxiliares:  
+%-------------------------------------------------------
+iterar_clases([]).
+iterar_clases([H|T]):-
+	write('NODO: '), writeln(H),
+	iterar_clases(T).
+%-------------------------------------------------------
 % Predicados para Consultar:  
 %-------------------------------------------------------
+
+	
 	
 	
 class_extension(Clase, KB, Res):-
@@ -95,6 +104,7 @@ class_extension(Clase, KB, Res):-
 	[H|T] = KB,
 	nl,write('H: '), write(H),nl,
 	nl,write('T: '), write(T),nl,
+	iterar_clases(KB),
 	write('class_extension predicate stop...').
 	
 property_extension(Prop,KB,Res):-
