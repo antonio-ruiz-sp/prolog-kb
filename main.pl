@@ -127,7 +127,16 @@ property_extension(Prop,KB,Res):-
 %-------------------------------------------------------
 % Predicados para eliminar:  
 %-------------------------------------------------------
-	
+
+rm_class(Clase, KB, Res_Eliminar).
+rm_object(Objeto, KB, Res_Eliminar).	
+
+rm_class_property(Clase, Propiedad, KB, Res_Eliminar).
+rm_object_property(Objeto, Propiedad, KB, Res_Eliminar).
+
+rm_class_relation(Clase, Relacion, KB, Res_Eliminar).
+rm_object_relation(Objeto, Relacion, KB, Res_Eliminar).
+
 
 %-------------------------------------------------------
 % Predicados para modificar:  
