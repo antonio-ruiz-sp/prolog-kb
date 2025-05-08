@@ -83,28 +83,60 @@ ejemplo:-
 % CUERPO DEL PROYECTO DE REPRESENTACIÓN DE CONOCIMIENTO:  
 %---------------------------------------------------------------------------
 
-%-------------------------------------------------------
-% Predicados auxiliares:  
-%-------------------------------------------------------
-iterar_clases([]).
-iterar_clases([H|T]):-
-	write('NODO: '), writeln(H),
-	iterar_clases(T).
-%-------------------------------------------------------
-% Predicados para Consultar:  
-%-------------------------------------------------------
+%%---------------------------------------------------------------------------
+%% Precondiciones:  
+%%---------------------------------------------------------------------------
+
+%%%- Formato de los elementos de la lista (funtores)
+%%%%- class(nombre_de_la_clase, clase_madre, lista_de_propiedades_de_la_clase, lista_de_relaciones_de_la_clase, lista_de_objetos)
+
+%%%- Formato de la lista de objetos se conforma a su vez de listas del siguiente modo:
+%%%%- [id=>nombre_del_objeto, lista_de_propiedades_del_objeto, lista_de_relacion
+
+%%%-------------------------------------------------------
+%%% Predicados auxiliares:  
+%%%-------------------------------------------------------
+
+subclase(S, P):- 
+	write('subclase predicate start...'),nl,
+	write('Clase Padre: '), write(P),nl,
+	write('Subclase: '), write(S),nl,
+	class(S, P,_,_,_).
+
+iterar_clases([], Clase).
+iterar_clases([H|T], Clase):-
+	write('iterar_clase predicate start...'),nl,
+	write('Class: '), writeln(H),
+	H(Nombre,_,_,_),
+	write('Nombre de la clase: '),Nombre,nl,
+	Clase == Nombre ->
+	subclase(Subclase, Clase);
+	iterar_clases(T,Clase).
+	%iterar_clases(T).
+	
 
 	
 	
+%%-------------------------------------------------------
+%% Predicados para Consultar:  
+%%-------------------------------------------------------
+
+%%- Ejemplo de la KB inicial como una lista: 
+%%- KB = [class(top, none, [], [], []), class(aves, top, [vuelan], [], []), class(peces, top, [nadan], [], []), class(mamiferos, top, [], [], []), class(aguilas, aves, [], [], [[id=>pedro, [...]|...]]), class(pinguinos, aves, [], [], [[... => ...|...]])].
 	
 class_extension(Clase, KB, Res):-
 	write('class_extension predicate start...'),nl,
 	write('KB: '), write(KB),nl,
 	write('Clase: '), write(Clase),nl,
-	[H|T] = KB,
-	nl,write('H: '), write(H),nl,
-	nl,write('T: '), write(T),nl,
-	iterar_clases(KB),
+	
+	%H(Nombre,_,_,_),
+	%write('Nombre: '), write(Nombre),nl,
+	
+	% iterar_clases(KB) y calcular subclases unicamente de la clase de interes
+	write('Calcular subclases de '), write(Clase),nl,
+	iterar_clasess(KB, 'aves'),
+	
+	write('Extension: '), write(Res),
 	write('class_extension predicate stop...').
 	
 property_extension(Prop,KB,Res):-
@@ -117,11 +149,11 @@ property_extension(Prop,KB,Res):-
 % El resto de los predicados de consultar van aquí abajo	
 
 
-%-------------------------------------------------------
-% Predicados para añadir:  
-%-------------------------------------------------------
+%%-------------------------------------------------------
+%% Predicados para añadir:  
+%%-------------------------------------------------------
 
-% Predicados para añadir van aquí
+%% Predicados para añadir van aquí
 
 
 %-------------------------------------------------------
@@ -137,8 +169,7 @@ rm_object_property(Objeto, Propiedad, KB, Res_Eliminar).
 rm_class_relation(Clase, Relacion, KB, Res_Eliminar).
 rm_object_relation(Objeto, Relacion, KB, Res_Eliminar).
 
-
-%-------------------------------------------------------
-% Predicados para modificar:  
-%-------------------------------------------------------
+%%-------------------------------------------------------
+%% Predicados para modificar:  
+%%-------------------------------------------------------
 
