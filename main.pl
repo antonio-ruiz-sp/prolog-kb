@@ -87,7 +87,7 @@ ejemplo:-
 %% Precondiciones:  
 %%---------------------------------------------------------------------------
 
-%%%- Formato de los elementos de la lista (funtores)
+%%%- Formato de los elementos de la lista (functores)
 %%%%- class(nombre_de_la_clase, clase_madre, lista_de_propiedades_de_la_clase, lista_de_relaciones_de_la_clase, lista_de_objetos)
 
 %%%- Formato de la lista de objetos se conforma a su vez de listas del siguiente modo:
@@ -96,26 +96,99 @@ ejemplo:-
 %%%-------------------------------------------------------
 %%% Predicados auxiliares:  
 %%%-------------------------------------------------------
+member(X, [X|_]).
+member(X, [_|T]) :- member(X, T).
+
+extract_facts(List,Facts):-
+	extract_facts_helper_using_acc(List,[],Facts).
+
+extract_facts_helper_using_acc([],Facts,Facts). %base case
+extract_facts_helper_using_acc([H|T],Acc,Facts):-
+	(
+	write('Inside extract_facts_helper_using_acc...'),nl,
+	\+ member(H, Acc)->
+	append(Acc,[H], NewFacts)
+	;NewFacts=Acc
+	),
+	extract_facts_helper_using_acc(T,NewFacts,Facts).
+
+
 
 subclase(S, P):- 
-	write('subclase predicate start...'),nl,
+	nl,write('subclase predicate start...'),nl,
 	write('Clase Padre: '), write(P),nl,
-	write('Subclase: '), write(S),nl,
-	class(S, P,_,_,_).
+	write('Subclase: '), write(S),nl.
+	%class(S, P,_,_,_).
 
-iterar_clases([], Clase).
-iterar_clases([H|T], Clase):-
-	write('iterar_clase predicate start...'),nl,
-	write('Class: '), writeln(H),
-	H(Nombre,_,_,_),
-	write('Nombre de la clase: '),Nombre,nl,
-	Clase == Nombre ->
-	subclase(Subclase, Clase);
-	iterar_clases(T,Clase).
-	%iterar_clases(T).
+%%%-------------------------------------------------
+%%% El siguiente predicate itera TODOS los elementos de la KB, en el orden 
+%%% en el que fueron listados en el archivo txt
+%%%-------------------------------------------------
+iterar_clases([]).
+iterar_clases([H|T]):-
+	nl,write('iterar_clase predicate TODOS los elementos START...'),nl,
 	
+	nl,write('H :'),write(H),nl,
+	write('T :'),write(T),nl,
+	class(CN,_,P,_,M) = H,!,
+	write('CN: '),write(CN),nl,
+	write('Miembros : '), write(M),nl,
+	write('Propiedades: '),write(P),nl,
+	%write('Miembros : '), write(M),nl,
+	iterar_clases(T),
 
+	nl,write('iterar_clase predicate TODOS los elementos '),write(CN),write(' STOP...'),nl.
+%-------------------------------------------------
+%%% El siguiente predicate itera los elementos de la KB que sean subclases de la clase de interes 
+%%% , en el orden en el que fueron listados en el archivo txt
+%-------------------------------------------------
+%find_subclasses
+iterar_subclases([], Clase, Res):-
+	nl,write('base case for iterar_subclass '),write(Clase),nl,
+	nl,write('Res :'),write(Res),nl,
+	write('End of base case iterar_subclases'),nl.
+
+iterar_subclases([H|T], Clase, Res):-
+	nl,write('iterar_subclases para buscar subclases de '),write(Clase),write(' predicate START ...'),nl,
 	
+	nl,write('H :'),write(H),nl,
+	write('T :'),write(T),nl,
+	class(CN,Top,_,_,M) = H,!,
+	write('CN: '),write(CN),nl,
+	write('Miembros de '),write(CN), write( ' : '), write(M),nl,
+	write('top : '),write(Top),nl,
+	write('Res: '),write(Res),nl,
+	write('Es Clase '),write(Clase),write(' igual al top de CN= '),write(CN),write(' CN.top == '),write(Top),write('?'),nl,
+	
+	(%if 
+		(CN == Clase;Top == Clase) -> 
+		write('IF--keep iterating...'),nl,
+		write('Add '),write(CN), write(' to the list of inheritance ...'),nl,
+		append([H],Res,TempRes),
+		(	%Si es la clase misma, guardar e iterar sobre el resto de la lista...
+			CN == Clase ->
+			nl,write(CN),write(' Clase misma...agregar y seguir iterando...'),
+			iterar_subclases(T,Clase,TempRes),
+			Res = TempRes
+			;
+			%else es una de las clases hijas, iterar subclases sobre e resto de la lista
+			write(CN),write(' Clase hija de '),write(Top), write(' Iterar sobre las clases hijas de '),write(CN),nl,
+			iterar_subclases(T,Clase,TempRes),
+			%iterar_subclases(KB,CN,TempRes),
+			
+			Res = TempRes
+		),
+		iterar_subclases(T, Clase, Res),
+		write('*Res: '),write(Res),nl,
+		write(TempRes),nl
+		;
+	%else
+		nl,write('ELSE--skipping '),write(CN),nl,
+		iterar_subclases(T, Clase, Res)
+	),
+	nl,write('After iteration of iterar_subclases de '),write(CN),
+	nl,write('iterar_subclase predicate para buscar sublcases de '),write(Clase),write(' STOP...'),nl.
+
 	
 %%-------------------------------------------------------
 %% Predicados para Consultar:  
@@ -125,26 +198,40 @@ iterar_clases([H|T], Clase):-
 %%- KB = [class(top, none, [], [], []), class(aves, top, [vuelan], [], []), class(peces, top, [nadan], [], []), class(mamiferos, top, [], [], []), class(aguilas, aves, [], [], [[id=>pedro, [...]|...]]), class(pinguinos, aves, [], [], [[... => ...|...]])].
 	
 class_extension(Clase, KB, Res):-
-	write('class_extension predicate start...'),nl,
+	write('class_extension predicate START...'),nl,
 	write('KB: '), write(KB),nl,
 	write('Clase: '), write(Clase),nl,
+	Res=[],
+	write('Res: '),write(Res),nl,
 	
-	%H(Nombre,_,_,_),
-	%write('Nombre: '), write(Nombre),nl,
+	% iterar TODOS los elementos de la KB
+	%iterar_clases(KB),
+
+	% iterar_clases(KB) y calcular unicamente subclases de la clase de interes
+	nl,write('#######Calcular subclases de '), write(Clase),write(' ###########'),nl,
+
+	% metodo recursivo:
+	iterar_subclases(KB, Clase, []),
+
+	% metodo de consulta por hechos.
+	%write('before extracting facts...'),nl,
+	%extract_facts(KB,Facts),
+	%write('Facts: '),write(Facts),nl,
 	
-	% iterar_clases(KB) y calcular subclases unicamente de la clase de interes
-	write('Calcular subclases de '), write(Clase),nl,
-	iterar_clasess(KB, 'aves'),
-	
-	write('Extension: '), write(Res),
-	write('class_extension predicate stop...').
+	%findall(X,member(X,KB),Facts),
+	%findall(X, member('class(aves,top,[nadan],[],[])',KB),Facts),
+	%member('class(aves,top,[nadan],[],[])', KB).
+
+	%nl,write('Result Facts using findAll : '), write(Facts),
+	nl,write('Res after recursive rounds: '), write(Res),
+	nl,write('class_extension predicate '),write(Clase),write(' STOP...'),nl.
 	
 property_extension(Prop,KB,Res):-
 	write('property_extension predicate start...'),nl,
 	write('KB: '), write(KB),nl,
 	write('Property: '), write(Prop),nl,
 	
-	write('proeperty_extension predicate stop...').
+	write('proeperty_extension predicate stop...'),nl.
 
 % El resto de los predicados de consultar van aquí abajo	
 
