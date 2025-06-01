@@ -96,8 +96,9 @@ ejemplo:-
 %%%-------------------------------------------------------
 %%% Predicados auxiliares:  
 %%%-------------------------------------------------------
-member(X, [X|_]).
-member(X, [_|T]) :- member(X, T).
+
+%member(X, [X|_]).
+%member(X, [_|T]) :- member(X, T).
 
 extract_facts(List,Facts):-
 	extract_facts_helper_using_acc(List,[],Facts).
@@ -140,9 +141,9 @@ iterar_clases([H|T]):-
 	nl,write('iterar_clase predicate TODOS los elementos '),write(CN),write(' STOP...'),nl.
 %-------------------------------------------------
 %%% El siguiente predicate itera los elementos de la KB que sean subclases de la clase de interes 
-%%% , en el orden en el que fueron listados en el archivo txt
+%%% en el orden en el que fueron listados en el archivo txt
 %-------------------------------------------------
-%find_subclasses
+% find_subclasses
 iterar_subclases([], Clase, Res):-
 	nl,write('base case for iterar_subclass '),write(Clase),nl,
 	nl,write('Res :'),write(Res),nl,
@@ -189,7 +190,26 @@ iterar_subclases([H|T], Clase, Res):-
 	nl,write('After iteration of iterar_subclases de '),write(CN),
 	nl,write('iterar_subclase predicate para buscar sublcases de '),write(Clase),write(' STOP...'),nl.
 
+iterar_subclases_1(Clase, [], KB, Res):-
+	nl,write('base case for iterar_subclases_1 '),write(Clase),nl,
+	nl,write('Res :'),write(Res),nl,
+	write('End of base case iterar_subclases_1'),nl.
+
+iterar_subclases_1(Clase,[H|T], KB, Res):-
+	nl,write('iterar_subclases_1 para buscar subclases de '),write(Clase),write(' predicate START ...'),nl,
 	
+	nl,write('H :'),write(H),nl,
+	write('T :'),write(T),nl,
+	class(CN,Top,_,_,M) = H,!,
+	write('CN: '),write(CN),nl,
+	write('Miembros de '),write(CN), write( ' : '), write(M),nl,
+	write('top : '),write(Top),nl,
+	write('Res: '),write(Res),nl,
+	nl,write('Res :'),write(Res),nl,
+	write('End of base case iterar_subclases_1'),nl.
+
+	
+
 %%-------------------------------------------------------
 %% Predicados para Consultar:  
 %%-------------------------------------------------------
@@ -211,8 +231,10 @@ class_extension(Clase, KB, Res):-
 	nl,write('#######Calcular subclases de '), write(Clase),write(' ###########'),nl,
 
 	% metodo recursivo:
-	iterar_subclases(KB, Clase, []),
+	% iterar_subclases(KB, Clase, []),
 
+	%metodo recursivo utilizando findall y member
+	iterar_subclases_1(Clase, KB, Res),
 	% metodo de consulta por hechos.
 	%write('before extracting facts...'),nl,
 	%extract_facts(KB,Facts),
