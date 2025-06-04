@@ -87,6 +87,10 @@ ejemplo:-
 %% Precondiciones:  
 %%---------------------------------------------------------------------------
 
+%%%- Formato de la KB:
+%%%%- La KB se conforma de una lista de clases, cada una de las cuales tiene un nombre, una clase madre, una lista de propiedades, una lista de relaciones y una lista de objetos.
+%%%%- KB = [class(top, none, [], [], []), class(aves, top, [vuelan], [], []), class(peces, top, [nadan], [], []), class(mamiferos, top, [], [], []), class(aguilas, aves, [], [], [[id=>pedro, [...]|...]]), class(pinguinos, aves, [], [], [[... => ...|...]]), class(felinos, mamiferos, [], [], [[...|...]])],
+
 %%%- Formato de los elementos de la lista (functores)
 %%%%- class(nombre_de_la_clase, clase_madre, lista_de_propiedades_de_la_clase, lista_de_relaciones_de_la_clase, lista_de_objetos)
 
@@ -96,6 +100,8 @@ ejemplo:-
 %%%-------------------------------------------------------
 %%% Predicados auxiliares:  
 %%%-------------------------------------------------------
+:- use_module(module/kb_utils).
+
 
 %member(X, [X|_]).
 %member(X, [_|T]) :- member(X, T).
@@ -218,23 +224,35 @@ iterar_subclases_1(Clase,[H|T], KB, Res):-
 %%- KB = [class(top, none, [], [], []), class(aves, top, [vuelan], [], []), class(peces, top, [nadan], [], []), class(mamiferos, top, [], [], []), class(aguilas, aves, [], [], [[id=>pedro, [...]|...]]), class(pinguinos, aves, [], [], [[... => ...|...]])].
 	
 class_extension(Clase, KB, Res):-
-	write('class_extension predicate START...'),nl,
-	write('KB: '), write(KB),nl,
-	write('Clase: '), write(Clase),nl,
+	debug(class_extension, 'Starting class_extension predicate START...~n',[]),
+	debug(class_extension, 'KB: ~q~n', [KB]),
+	debug(class_extension, 'Clase: ~q~n', [Clase]),	
+	%write('class_extension predicate START...'),nl,
+	%write('KB: '), write(KB),nl,
+	%write('Clase: '), write(Clase),nl,
 	Res=[],
-	write('Res: '),write(Res),nl,
+	debug(class_extension, 'Res: ~q~n', [Res]),
+	%write('Res: '),write(Res),nl,
+	
 	
 	% iterar TODOS los elementos de la KB
 	%iterar_clases(KB),
+	debug(class_extension, 'Iterating through all classes in KB...~n',[]),
+	iterate_kb(KB),	
 
 	% iterar_clases(KB) y calcular unicamente subclases de la clase de interes
-	nl,write('#######Calcular subclases de '), write(Clase),write(' ###########'),nl,
+	%nl,write('#######Calcular subclases de '), write(Clase),write(' ###########'),nl,
+	%print_message(informational,'#####Calculating subclasses of ~q...#####~n'-[Clase]),
+	%print_message(informational,'Calculating subclasses of: ~q'-[Clase]),
+	%print_message(informational, '#######Calcular subclases de  ###########'-[Clase]),
+	%print_message(warning, 'This is a warning about: ~w.~n'-[Clase]),
 
+	%format('Calculating subclasses of: ~q~n', [Clase]),
 	% metodo recursivo:
 	% iterar_subclases(KB, Clase, []),
 
 	%metodo recursivo utilizando findall y member
-	iterar_subclases_1(Clase, KB, Res),
+	%iterar_subclases_1(Clase, KB, Res),
 	% metodo de consulta por hechos.
 	%write('before extracting facts...'),nl,
 	%extract_facts(KB,Facts),
@@ -245,9 +263,10 @@ class_extension(Clase, KB, Res):-
 	%member('class(aves,top,[nadan],[],[])', KB).
 
 	%nl,write('Result Facts using findAll : '), write(Facts),
-	nl,write('Res after recursive rounds: '), write(Res),
-	nl,write('class_extension predicate '),write(Clase),write(' STOP...'),nl.
-	
+	%nl,write('Res after recursive rounds: '), write(Res),
+	%nl,write('class_extension predicate '),write(Clase),write(' STOP...'),nl.
+	debug(class_extension, 'class_extension predicate STOP...~n',[]).
+
 property_extension(Prop,KB,Res):-
 	write('property_extension predicate start...'),nl,
 	write('KB: '), write(KB),nl,

@@ -1,0 +1,33 @@
+:- module(kb_utils, [
+    class_info/1,
+    extract_class_element/3,
+    iterate_kb/1,
+    iterate_sublcasses/3
+]).
+
+% Example class_info/1: Prints information about a class term
+class_info(class(Name, Parent, Properties, Relations, Members)) :-
+    format('Class: ~w~nParent: ~w~nProperties: ~w~nRelations: ~w~nMembers: ~w~n',
+           [Name, Parent, Properties, Relations, Members]).
+class_info(Other) :-
+    format('Unknown class structure: ~w~n', [Other]).
+
+% extract_class_element(+Class, +Element, -Value)
+% Extracts a specific element from a class term
+extract_class_element(class(Name, _, _, _, _), name, Name).
+extract_class_element(class(_, Parent, _, _, _), parent, Parent).
+extract_class_element(class(_, _, Properties, _, _), properties, Properties).
+extract_class_element(class(_, _, _, Relations, _), relations, Relations).
+extract_class_element(class(_, _, _, _, Members), members, Members).
+
+% iterate_kb(+KB)
+% Iterates over all classes in the KB and prints their info
+iterate_kb([]).
+iterate_kb([Class|Rest]) :-
+    class_info(Class),
+    iterate_kb(Rest).
+
+% iterate_sublcasses(+ClassName, +KB, -Subclasses)
+% Finds all subclasses of ClassName in KB
+iterate_sublcasses(ClassName, KB, Subclasses) :-
+    findall(Sub, (member(class(Sub, ClassName, _, _, _), KB)), Subclasses).
