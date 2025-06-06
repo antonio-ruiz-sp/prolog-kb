@@ -347,21 +347,456 @@ class_relations(class, KB, Res).
 
 %% Predicados para añadir van aquí
 
+%--------------------------------------------------
+% Añadir una nueva clase (add_class/4)
+%--------------------------------------------------
+add_class(ClassName, ParentClass, CurrentKB, NewKB) :-
+    % Verificar que la clase padre exista
+    ParentClass == none ; member(class(ParentClass, _, _, _, _), CurrentKB),
+    % Verificar que la clase no exista ya
+    \+ member(class(ClassName, _, _, _, _), CurrentKB),
+    % Construir la nueva clase
+    NewClass = class(ClassName, ParentClass, [], [], []),
+    % Añadirla a la KB
+    
+    append(CurrentKB, [NewClass], NewKB),
+    save_kb('new_kb_1_1.txt',NewKB).
+
+
+
+
+%--------------------------------------------------
+% Añadir un nuevo objeto (add_object/4)
+%--------------------------------------------------
+add_object(ObjectName, ClassName, CurrentKB, NewKB) :-
+    % 1. Encontrar la clase y extraer TODOS sus atributos
+    member(class(ClassName, Parent, Props, Methods, Instances), CurrentKB),
+    
+    % 2. Verificar que el objeto no existe
+    \+ (member(class(_, _, _, _, AllInstances), CurrentKB),
+        member([id=>ObjectName|_], AllInstances)),
+    
+    % 3. Crear nueva instancia
+    NewInstance = [id=>ObjectName, [], []],
+    
+    % 4. Reemplazar MANTENIENDO TODOS los atributos originales
+    replace_class(ClassName, 
+                 class(ClassName, Parent, Props, Methods, [NewInstance|Instances]), % ← Todos los campos preservados
+                 CurrentKB, NewKB),
+    save_kb('new_kb_1_1.txt',NewKB).
+
+
+
+%--------------------------------------------------
+% Añadir propiedad a una clase
+%--------------------------------------------------
+add_class_property(ClassName, Property, Value, CurrentKB, NewKB) :-
+    % Verificar que la clase existe
+    member(class(ClassName, Parent, Props, Methods, Instances), CurrentKB),
+    
+    % Verificar que la propiedad no existe ya
+    \+ member(Property=_, Props),
+    
+    % Añadir la nueva propiedad
+    append(Props, [Property=>Value], NewProps),
+    
+    % Reconstruir la clase con la nueva propiedad
+    replace_class(ClassName, 
+                class(ClassName, Parent, NewProps, Methods, Instances),
+                CurrentKB, NewKB),
+    save_kb('new_kb_1_1.txt',NewKB).                
+
+
+
+%--------------------------------------------------
+% Añadir propiedad a un objeto
+%--------------------------------------------------
+add_object_property(ObjectName, Property, Value, CurrentKB, NewKB) :-
+    % Encontrar el objeto en cualquier clase
+    member(class(ClassName, Parent, Props, Methods, Instances), CurrentKB),
+    member([id=>ObjectName|ObjProps], Instances),
+    
+    % Extraer propiedades actuales del objeto
+    (   ObjProps = [CurrentProps, _] -> true
+    ;   CurrentProps = []
+    ),
+    
+    % Verificar que la propiedad no existe ya
+    \+ member(Property=_, CurrentProps),
+    
+    % Añadir la nueva propiedad
+    append(CurrentProps, [Property=>Value], NewObjectProps),
+    
+    % Reconstruir el objeto con las nuevas propiedades
+    replace_object(ObjectName, 
+                 [id=>ObjectName, NewObjectProps, []],
+                 Instances, NewInstances),
+    
+    % Actualizar la clase con el objeto modificado
+    replace_class(ClassName,
+                class(ClassName, Parent, Props, Methods, NewInstances),
+                CurrentKB, NewKB),
+    save_kb('new_kb_1_1.txt',NewKB).
+
+
+%--------------------------------------------------
+% Añadir relación entre clases
+%--------------------------------------------------
+add_class_relation(ClassName, RelationName, RelatedClasses, CurrentKB, NewKB) :-
+    % Verificar que la clase existe
+    member(class(ClassName, Parent, Props, Methods, Instances), CurrentKB),
+    
+    % Verificar que las clases relacionadas existen
+    forall(member(RelatedClass, RelatedClasses), 
+           member(class(RelatedClass, _, _, _, _), CurrentKB)),
+    
+    % Construir el término de relación
+    RelationTerm =.. [RelationName|RelatedClasses],
+    
+    % Añadir la relación a los métodos (usamos Methods para relaciones)
+    append(Methods, [RelationTerm], NewMethods),
+    
+    % Reconstruir la clase con la nueva relación
+    replace_class(ClassName, 
+                class(ClassName, Parent, Props, NewMethods, Instances),
+                CurrentKB, NewKB),
+    save_kb('new_kb_1_1.txt',NewKB).
+
+
+%--------------------------------------------------
+% Añadir relación entre objetos
+%--------------------------------------------------
+add_object_relation(ObjectName, RelationName, RelatedObjects, CurrentKB, NewKB) :-
+    % Encontrar el objeto en cualquier clase
+    member(class(ClassName, Parent, Props, Methods, Instances), CurrentKB),
+    member([id=>ObjectName, ObjProps, ObjRelations], Instances),
+    
+    % Verificar que los objetos relacionados existen
+    forall(member(RelatedObj, RelatedObjects),
+           (member(class(_, _, _, _, AllInstances), CurrentKB),
+            member([id=>RelatedObj|_], AllInstances))),
+    
+    % Construir el término de relación
+    RelationTerm =.. [RelationName|RelatedObjects],
+    
+    % Añadir la relación al objeto
+    append(ObjRelations, [RelationTerm], NewObjRelations),
+    
+    % Reconstruir el objeto con las nuevas relaciones
+    replace_object(ObjectName, 
+                 [id=>ObjectName, ObjProps, NewObjRelations],
+                 Instances, NewInstances),
+    
+    % Actualizar la clase con el objeto modificado
+    replace_class(ClassName,
+                class(ClassName, Parent, Props, Methods, NewInstances),
+                CurrentKB, NewKB),
+    save_kb('new_kb_1_1.txt',NewKB).            
+
+%--------------------------------------------------
+% replace_object/4 - Reemplazar objeto en una lista de instancias
+%--------------------------------------------------
+replace_object(_, _, [], []).
+replace_object(ObjectName, NewObject, [[id=>ObjectName|_]|Rest], [NewObject|Rest]).
+replace_object(ObjectName, NewObject, [Obj|Rest], [Obj|NewRest]) :-
+    Obj = [id=>Name|_],
+    Name \= ObjectName,
+    replace_object(ObjectName, NewObject, Rest, NewRest).
+
+% Reemplazar una clase en la KB
+replace_class(_, _, [], []) :- !.
+replace_class(ClassName, NewClass, [class(ClassName,_,_,_,_)|Rest], [NewClass|Rest]) :- !.
+replace_class(ClassName, NewClass, [Class|Rest], [Class|NewRest]) :-
+    replace_class(ClassName, NewClass, Rest, NewRest).
 
 %-------------------------------------------------------
 % Predicados para eliminar:  
 %-------------------------------------------------------
 
-rm_class(Clase, KB, Res_Eliminar).
-rm_object(Objeto, KB, Res_Eliminar).	
+% Eliminar una clase
+%--------------------------------------------------
+% Eliminar una clase (y todos sus objetos)
+%--------------------------------------------------
+rm_class(ClassName, CurrentKB, NewKB) :-
+    % Verificar que la clase existe
+    member(class(ClassName, _, _, _, _), CurrentKB),
+    
+    % Eliminar la clase y sus instancias
+    exclude(is_class(ClassName), CurrentKB, TempKB),
+    
+    % Eliminar objetos de esta clase en otras relaciones
+    clean_class_references(ClassName, TempKB, NewKB).
 
-rm_class_property(Clase, Propiedad, KB, Res_Eliminar).
-rm_object_property(Objeto, Propiedad, KB, Res_Eliminar).
+% Predicado auxiliar para filtrar clases
+is_class(ClassName, class(ClassName, _, _, _, _)).
 
-rm_class_relation(Clase, Relacion, KB, Res_Eliminar).
-rm_object_relation(Objeto, Relacion, KB, Res_Eliminar).
+
+% Eliminar un objeto de cualquier clase
+rm_object(ObjectName, CurrentKB, NewKB) :-
+    % Encontrar y eliminar el objeto de su clase
+    remove_object_from_class(ObjectName, CurrentKB, TempKB),
+    
+    % Eliminar referencias al objeto en otras relaciones
+    clean_object_references(ObjectName, TempKB, NewKB).
+
+% Eliminar objeto de su clase contenedora
+remove_object_from_class(ObjectName, CurrentKB, NewKB) :-
+    findall(
+        class(C,P,Props,Methods,NewInstances),
+        (member(class(C,P,Props,Methods,Instances), CurrentKB),
+         exclude(is_object(ObjectName), Instances, NewInstances)),
+        NewKB
+    ).
+
+% Predicado auxiliar para filtrar objetos
+is_object(ObjectName, [id=>ObjectName|_]).
+
+% Limpiar referencias a objetos de la clase eliminada
+clean_class_references(_, [], []).
+clean_class_references(ClassName, [class(C,P,Props,Methods,Instances)|Rest], 
+                      [class(C,P,Props,NewMethods,NewInstances)|NewRest]) :-
+    % Limpiar relaciones en métodos
+    clean_relations(ClassName, Methods, NewMethods),
+    
+    % Limpiar relaciones en instancias
+    clean_object_relations(ClassName, Instances, NewInstances),
+    
+    % Continuar con el resto
+    clean_class_references(ClassName, Rest, NewRest).
+
+% Limpiar relaciones de clase
+clean_relations(ClassName, Methods, NewMethods) :-
+    exclude(mentions_class(ClassName), Methods, NewMethods).
+
+mentions_class(ClassName, Relation) :-
+    Relation =.. [_|Args],
+    member(ClassName, Args).
+
+% Limpiar relaciones en objetos
+clean_object_relations(ClassName, Instances, NewInstances) :-
+    findall(
+        [id=>Obj,Props,NewRels],
+        (member([id=>Obj,Props,Rels], Instances),
+         exclude(mentions_class(ClassName), Rels, NewRels)),
+        NewInstances
+    ).
+
+% Limpiar referencias a objetos específicos
+clean_object_in_relations(ObjectName, Methods, NewMethods) :-
+    exclude(mentions_object(ObjectName), Methods, NewMethods).
+
+mentions_object(ObjectName, Relation) :-
+    Relation =.. [_|Args],
+    member(ObjectName, Args).
+
+clean_object_in_object_relations(ObjectName, Instances, NewInstances) :-
+    findall(
+        [id=>Obj,Props,NewRels],
+        (member([id=>Obj,Props,Rels], Instances),
+         exclude(mentions_object(ObjectName), Rels, NewRels)),
+        NewInstances
+    ).
+
+
+%--------------------------------------------------
+% Eliminar propiedad de una clase
+%--------------------------------------------------
+rm_class_property(ClassName, Property, CurrentKB, NewKB) :-
+    % Verificar que la clase existe
+    member(class(ClassName, Parent, Props, Methods, Instances), CurrentKB),
+    
+    % Verificar que la propiedad existe
+    member(Property=_, Props),
+    
+    % Eliminar la propiedad
+    select(Property=_, Props, NewProps),
+    
+    % Reconstruir la clase sin la propiedad
+    replace_class(ClassName, 
+                class(ClassName, Parent, NewProps, Methods, Instances),
+                CurrentKB, NewKB).
+
+%--------------------------------------------------
+% Eliminar propiedad de un objeto
+%--------------------------------------------------
+rm_object_property(ObjectName, Property, CurrentKB, NewKB) :-
+    % Encontrar el objeto en cualquier clase
+    member(class(ClassName, Parent, Props, Methods, Instances), CurrentKB),
+    member([id=>ObjectName, ObjProps, ObjRels], Instances),
+    
+    % Verificar que la propiedad existe en el objeto
+    member(Property=_, ObjProps),
+    
+    % Eliminar la propiedad
+    select(Property=_, ObjProps, NewObjProps),
+    
+    % Reconstruir el objeto sin la propiedad
+    replace_object(ObjectName, 
+                 [id=>ObjectName, NewObjProps, ObjRels],
+                 Instances, NewInstances),
+    
+    % Actualizar la clase con el objeto modificado
+    replace_class(ClassName,
+                class(ClassName, Parent, Props, Methods, NewInstances),
+                CurrentKB, NewKB).
+
+%--------------------------------------------------
+% Eliminar relación específica de una clase
+%--------------------------------------------------
+rm_class_relation(ClassName, RelationName, CurrentKB, NewKB) :-
+    % Verificar que la clase existe
+    member(class(ClassName, Parent, Props, Methods, Instances), CurrentKB),
+    
+    % Eliminar todas las relaciones con este nombre
+    exclude(is_relation(RelationName), Methods, NewMethods),
+    
+    % Reconstruir la clase sin las relaciones
+    replace_class(ClassName, 
+                class(ClassName, Parent, Props, NewMethods, Instances),
+                CurrentKB, NewKB).
+
+% Predicado auxiliar para identificar relaciones
+is_relation(RelationName, Relation) :-
+    functor(Relation, RelationName, _).
+
+%--------------------------------------------------
+% Eliminar relación específica de un objeto
+%--------------------------------------------------
+rm_object_relation(ObjectName, RelationName, CurrentKB, NewKB) :-
+    % Encontrar el objeto en cualquier clase
+    member(class(ClassName, Parent, Props, Methods, Instances), CurrentKB),
+    member([id=>ObjectName, ObjProps, ObjRels], Instances),
+    
+    % Eliminar todas las relaciones con este nombre
+    exclude(is_relation(RelationName), ObjRels, NewObjRels),
+    
+    % Reconstruir el objeto sin las relaciones
+    replace_object(ObjectName, 
+                 [id=>ObjectName, ObjProps, NewObjRels],
+                 Instances, NewInstances),
+    
+    % Actualizar la clase con el objeto modificado
+    replace_class(ClassName,
+                class(ClassName, Parent, Props, Methods, NewInstances),
+                CurrentKB, NewKB).
+
 
 %%-------------------------------------------------------
 %% Predicados para modificar:  
 %%-------------------------------------------------------
 
+%--------------------------------------------------
+% Cambiar nombre de una clase (y actualizar referencias)
+%--------------------------------------------------
+change_class_name(OldName, NewName, CurrentKB, NewKB) :-
+    % Verificar que la clase existe y el nuevo nombre no
+    member(class(OldName, _, _, _, _), CurrentKB),
+    \+ member(class(NewName, _, _, _, _), CurrentKB),
+    
+    % Cambiar nombre en la definición de la clase
+    replace_class_name(OldName, NewName, CurrentKB, TempKB),
+    
+    % Actualizar referencias en herencia
+    update_parent_references(OldName, NewName, TempKB, TempKB2),
+    
+    % Actualizar referencias en relaciones
+    update_class_relations(OldName, NewName, TempKB2, NewKB).
+
+% Predicado auxiliar para cambiar el nombre en la definición
+replace_class_name(OldName, NewName, [class(OldName, P, Pr, M, I)|Rest], 
+                   [class(NewName, P, Pr, M, I)|NewRest]) :-
+    replace_class_name(OldName, NewName, Rest, NewRest).
+replace_class_name(OldName, NewName, [Class|Rest], [Class|NewRest]) :-
+    Class = class(Name, _, _, _, _),
+    Name \= OldName,
+    replace_class_name(OldName, NewName, Rest, NewRest).
+replace_class_name(_, _, [], []).
+
+% Actualizar referencias como clase padre
+update_parent_references(OldName, NewName, [class(C, OldName, Pr, M, I)|Rest], 
+                         [class(C, NewName, Pr, M, I)|NewRest]) :-
+    update_parent_references(OldName, NewName, Rest, NewRest).
+update_parent_references(OldName, NewName, [class(C, P, Pr, M, I)|Rest], 
+                         [class(C, P, Pr, M, I)|NewRest]) :-
+    P \= OldName,
+    update_parent_references(OldName, NewName, Rest, NewRest).
+update_parent_references(_, _, [], []).
+
+% Actualizar referencias en relaciones
+update_class_relations(OldName, NewName, CurrentKB, NewKB) :-
+    findall(
+        class(C, P, Pr, NewMethods, I),
+        (member(class(C, P, Pr, Methods, I), CurrentKB),
+         update_relations_in_methods(OldName, NewName, Methods, NewMethods)),
+        NewKB
+    ).
+
+update_relations_in_methods(_, _, [], []).
+update_relations_in_methods(OldName, NewName, [Relation|Rest], [NewRelation|NewRest]) :-
+    Relation =.. [RelName|Args],
+    replace_in_args(OldName, NewName, Args, NewArgs),
+    NewRelation =.. [RelName|NewArgs],
+    update_relations_in_methods(OldName, NewName, Rest, NewRest).
+
+replace_in_args(Old, New, [Old|Rest], [New|NewRest]) :-
+    replace_in_args(Old, New, Rest, NewRest).
+replace_in_args(Old, New, [X|Rest], [X|NewRest]) :-
+    X \= Old,
+    replace_in_args(Old, New, Rest, NewRest).
+replace_in_args(_, _, [], []).
+
+%--------------------------------------------------
+% Cambiar nombre de un objeto (y actualizar referencias)
+%--------------------------------------------------
+change_object_name(OldName, NewName, CurrentKB, NewKB) :-
+    % Verificar que el objeto existe y el nuevo nombre no
+    (member(class(_, _, _, _, Instances), CurrentKB),
+     member([id=>OldName|_], Instances)),
+    \+ (member(class(_, _, _, _, AllInstances), CurrentKB),
+        member([id=>NewName|_], AllInstances)),
+    
+    % Cambiar nombre en la definición del objeto
+    replace_object_name(OldName, NewName, CurrentKB, TempKB),
+    
+    % Actualizar referencias en relaciones
+    update_object_relations(OldName, NewName, TempKB, NewKB).
+
+% Predicado auxiliar para cambiar el nombre en la definición
+replace_object_name(OldName, NewName, [class(C, P, Pr, M, Instances)|Rest], 
+                   [class(C, P, Pr, M, NewInstances)|NewRest]) :-
+    replace_objects_in_list(OldName, NewName, Instances, NewInstances),
+    replace_object_name(OldName, NewName, Rest, NewRest).
+replace_object_name(_, _, [], []).
+
+replace_objects_in_list(OldName, NewName, [[id=>OldName|Rest]|More], 
+                       [[id=>NewName|Rest]|NewMore]) :-
+    replace_objects_in_list(OldName, NewName, More, NewMore).
+replace_objects_in_list(OldName, NewName, [Obj|More], [Obj|NewMore]) :-
+    Obj = [id=>Name|_],
+    Name \= OldName,
+    replace_objects_in_list(OldName, NewName, More, NewMore).
+replace_objects_in_list(_, _, [], []).
+
+% Actualizar referencias en relaciones
+update_object_relations(OldName, NewName, CurrentKB, NewKB) :-
+    findall(
+        class(C, P, Pr, M, NewInstances),
+        (member(class(C, P, Pr, M, Instances), CurrentKB),
+         update_relations_in_instances(OldName, NewName, Instances, NewInstances)),
+        NewKB
+    ).
+
+update_relations_in_instances(OldName, NewName, Instances, NewInstances) :-
+    findall(
+        [id=>Obj, Props, NewRels],
+        (member([id=>Obj, Props, Rels], Instances),
+         update_relations_in_list(OldName, NewName, Rels, NewRels)),
+        NewInstances
+    ).
+
+update_relations_in_list(OldName, NewName, [Relation|Rest], [NewRelation|NewRest]) :-
+    Relation =.. [RelName|Args],
+    replace_in_args(OldName, NewName, Args, NewArgs),
+    NewRelation =.. [RelName|NewArgs],
+    update_relations_in_list(OldName, NewName, Rest, NewRest).
+update_relations_in_list(_, _, [], []).
