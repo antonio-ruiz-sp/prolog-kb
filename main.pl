@@ -327,6 +327,167 @@ class_relations(class, KB, Res).
 
 %% Predicados para añadir van aquí
 
+%--------------------------------------------------
+% Añadir una nueva clase (add_class/4)
+%--------------------------------------------------
+add_class(ClassName, ParentClass, CurrentKB, NewKB) :-
+    % Verificar que la clase padre exista
+    ParentClass == none ; member(class(ParentClass, _, _, _, _), CurrentKB),
+    % Verificar que la clase no exista ya
+    \+ member(class(ClassName, _, _, _, _), CurrentKB),
+    % Construir la nueva clase
+    NewClass = class(ClassName, ParentClass, [], [], []),
+    % Añadirla a la KB
+    
+    append(CurrentKB, [NewClass], NewKB),
+    save_kb('new_kb_1_1.txt',NewKB).
+
+
+
+
+%--------------------------------------------------
+% Añadir un nuevo objeto (add_object/4)
+%--------------------------------------------------
+add_object(ObjectName, ClassName, CurrentKB, NewKB) :-
+    % 1. Encontrar la clase y extraer TODOS sus atributos
+    member(class(ClassName, Parent, Props, Methods, Instances), CurrentKB),
+    
+    % 2. Verificar que el objeto no existe
+    \+ (member(class(_, _, _, _, AllInstances), CurrentKB),
+        member([id=>ObjectName|_], AllInstances)),
+    
+    % 3. Crear nueva instancia
+    NewInstance = [id=>ObjectName, [], []],
+    
+    % 4. Reemplazar MANTENIENDO TODOS los atributos originales
+    replace_class(ClassName, 
+                 class(ClassName, Parent, Props, Methods, [NewInstance|Instances]), % ← Todos los campos preservados
+                 CurrentKB, NewKB),
+    save_kb('new_kb_1_1.txt',NewKB).
+
+
+
+%--------------------------------------------------
+% Añadir propiedad a una clase
+%--------------------------------------------------
+add_class_property(ClassName, Property, Value, CurrentKB, NewKB) :-
+    % Verificar que la clase existe
+    member(class(ClassName, Parent, Props, Methods, Instances), CurrentKB),
+    
+    % Verificar que la propiedad no existe ya
+    \+ member(Property=_, Props),
+    
+    % Añadir la nueva propiedad
+    append(Props, [Property=>Value], NewProps),
+    
+    % Reconstruir la clase con la nueva propiedad
+    replace_class(ClassName, 
+                class(ClassName, Parent, NewProps, Methods, Instances),
+                CurrentKB, NewKB),
+    save_kb('new_kb_1_1.txt',NewKB).                
+
+
+
+%--------------------------------------------------
+% Añadir propiedad a un objeto
+%--------------------------------------------------
+add_object_property(ObjectName, Property, Value, CurrentKB, NewKB) :-
+    % Encontrar el objeto en cualquier clase
+    member(class(ClassName, Parent, Props, Methods, Instances), CurrentKB),
+    member([id=>ObjectName|ObjProps], Instances),
+    
+    % Extraer propiedades actuales del objeto
+    (   ObjProps = [CurrentProps, _] -> true
+    ;   CurrentProps = []
+    ),
+    
+    % Verificar que la propiedad no existe ya
+    \+ member(Property=_, CurrentProps),
+    
+    % Añadir la nueva propiedad
+    append(CurrentProps, [Property=>Value], NewObjectProps),
+    
+    % Reconstruir el objeto con las nuevas propiedades
+    replace_object(ObjectName, 
+                 [id=>ObjectName, NewObjectProps, []],
+                 Instances, NewInstances),
+    
+    % Actualizar la clase con el objeto modificado
+    replace_class(ClassName,
+                class(ClassName, Parent, Props, Methods, NewInstances),
+                CurrentKB, NewKB),
+    save_kb('new_kb_1_1.txt',NewKB).
+
+
+%--------------------------------------------------
+% Añadir relación entre clases
+%--------------------------------------------------
+add_class_relation(ClassName, RelationName, RelatedClasses, CurrentKB, NewKB) :-
+    % Verificar que la clase existe
+    member(class(ClassName, Parent, Props, Methods, Instances), CurrentKB),
+    
+    % Verificar que las clases relacionadas existen
+    forall(member(RelatedClass, RelatedClasses), 
+           member(class(RelatedClass, _, _, _, _), CurrentKB)),
+    
+    % Construir el término de relación
+    RelationTerm =.. [RelationName|RelatedClasses],
+    
+    % Añadir la relación a los métodos (usamos Methods para relaciones)
+    append(Methods, [RelationTerm], NewMethods),
+    
+    % Reconstruir la clase con la nueva relación
+    replace_class(ClassName, 
+                class(ClassName, Parent, Props, NewMethods, Instances),
+                CurrentKB, NewKB),
+    save_kb('new_kb_1_1.txt',NewKB).
+
+
+%--------------------------------------------------
+% Añadir relación entre objetos
+%--------------------------------------------------
+add_object_relation(ObjectName, RelationName, RelatedObjects, CurrentKB, NewKB) :-
+    % Encontrar el objeto en cualquier clase
+    member(class(ClassName, Parent, Props, Methods, Instances), CurrentKB),
+    member([id=>ObjectName, ObjProps, ObjRelations], Instances),
+    
+    % Verificar que los objetos relacionados existen
+    forall(member(RelatedObj, RelatedObjects),
+           (member(class(_, _, _, _, AllInstances), CurrentKB),
+            member([id=>RelatedObj|_], AllInstances))),
+    
+    % Construir el término de relación
+    RelationTerm =.. [RelationName|RelatedObjects],
+    
+    % Añadir la relación al objeto
+    append(ObjRelations, [RelationTerm], NewObjRelations),
+    
+    % Reconstruir el objeto con las nuevas relaciones
+    replace_object(ObjectName, 
+                 [id=>ObjectName, ObjProps, NewObjRelations],
+                 Instances, NewInstances),
+    
+    % Actualizar la clase con el objeto modificado
+    replace_class(ClassName,
+                class(ClassName, Parent, Props, Methods, NewInstances),
+                CurrentKB, NewKB),
+    save_kb('new_kb_1_1.txt',NewKB).            
+
+%--------------------------------------------------
+% replace_object/4 - Reemplazar objeto en una lista de instancias
+%--------------------------------------------------
+replace_object(_, _, [], []).
+replace_object(ObjectName, NewObject, [[id=>ObjectName|_]|Rest], [NewObject|Rest]).
+replace_object(ObjectName, NewObject, [Obj|Rest], [Obj|NewRest]) :-
+    Obj = [id=>Name|_],
+    Name \= ObjectName,
+    replace_object(ObjectName, NewObject, Rest, NewRest).
+
+% Reemplazar una clase en la KB
+replace_class(_, _, [], []) :- !.
+replace_class(ClassName, NewClass, [class(ClassName,_,_,_,_)|Rest], [NewClass|Rest]) :- !.
+replace_class(ClassName, NewClass, [Class|Rest], [Class|NewRest]) :-
+    replace_class(ClassName, NewClass, Rest, NewRest).
 
 %-------------------------------------------------------
 % Predicados para eliminar:  
