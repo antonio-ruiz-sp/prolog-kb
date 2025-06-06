@@ -106,18 +106,7 @@ ejemplo:-
 %member(X, [X|_]).
 %member(X, [_|T]) :- member(X, T).
 
-extract_facts(List,Facts):-
-	extract_facts_helper_using_acc(List,[],Facts).
 
-extract_facts_helper_using_acc([],Facts,Facts). %base case
-extract_facts_helper_using_acc([H|T],Acc,Facts):-
-	(
-	write('Inside extract_facts_helper_using_acc...'),nl,
-	\+ member(H, Acc)->
-	append(Acc,[H], NewFacts)
-	;NewFacts=Acc
-	),
-	extract_facts_helper_using_acc(T,NewFacts,Facts).
 
 
 
@@ -141,7 +130,6 @@ iterar_clases([H|T]):-
 	write('CN: '),write(CN),nl,
 	write('Miembros : '), write(M),nl,
 	write('Propiedades: '),write(P),nl,
-	%write('Miembros : '), write(M),nl,
 	iterar_clases(T),
 
 	nl,write('iterar_clase predicate TODOS los elementos '),write(CN),write(' STOP...'),nl.
@@ -223,56 +211,75 @@ iterar_subclases_1(Clase,[H|T], KB, Res):-
 %%- Ejemplo de la KB inicial como una lista: 
 %%- KB = [class(top, none, [], [], []), class(aves, top, [vuelan], [], []), class(peces, top, [nadan], [], []), class(mamiferos, top, [], [], []), class(aguilas, aves, [], [], [[id=>pedro, [...]|...]]), class(pinguinos, aves, [], [], [[... => ...|...]])].
 	
+% ========================================================================	
 class_extension(Clase, KB, Res):-
-	debug(class_extension, 'Starting class_extension predicate START...~n',[]),
-	debug(class_extension, 'KB: ~q~n', [KB]),
-	debug(class_extension, 'Clase: ~q~n', [Clase]),	
-	%write('class_extension predicate START...'),nl,
-	%write('KB: '), write(KB),nl,
-	%write('Clase: '), write(Clase),nl,
-	Res=[],
-	debug(class_extension, 'Res: ~q~n', [Res]),
-	%write('Res: '),write(Res),nl,
+	debug(class_ext, 'Starting class_extension predicate START...~n',[]),
+	debug(class_ext, 'KB: ~q~n', [KB]),
+	debug(class_ext, 'Clase: ~q~n', [Clase]),	
+
+	debug(class_ext,'..inside findall for class_extension predicate~n', []),
+
+	findall(ID,
+            (   member(class(Clase, _, _, _, Miembros), KB),
+				member([id=>ID|_], Miembros)
+			),
+            DirectInstances),
+    findall(SubClassName,
+            member(class(SubClassName, Clase, _, _, _), KB),
+            SubClasses),
+	debug(class_ext,'SubClasses found: ~q~n', [SubClasses]),
+    find_subclass_instances(SubClasses, KB, SubClassInstances),
+    append(DirectInstances, SubClassInstances, Res),
+
+	debug(class_ext, 'class_extension predicate STOP...~n',[]).
+
+% Predicado auxiliar para encontrar las subclases de una clase.
+find_subclass_instances([], _, []):-
+	debug(class_ext, 'Base Case.~n',[]).
+
+find_subclass_instances([SubClass|Remaining], KB, AllInstances) :-
+	debug(class_ext,'Finding instances for subclass: ~q~n', [SubClass]),
+    class_extension(SubClass, KB, SubClassInstances),
+    find_subclass_instances(Remaining, KB, RestInstances),
+    append(SubClassInstances, RestInstances, AllInstances).
+
+% ========================================================================	
+property_extension(Prop, KB, Res):-
+	debug(prop_ext, 'Starting property_extension predicate START...~n',[]),
+	debug(prop_ext, 'KB: ~q~n', [KB]),
+	debug(prop_ext, 'Propiedad: ~q~n', [Prop]),	
 	
-	
-	% iterar TODOS los elementos de la KB
-	%iterar_clases(KB),
-	debug(class_extension, 'Iterating through all classes in KB...~n',[]),
-	iterate_kb(KB),	
+	findall(
+        Id:Value, % Lista en formato Id:Value
+        (
+            % Iterar las clases en la KB
+            member(class(Class, Top, _, _, Miembros), KB),
+			debug(prop_ext, 'Processing class: ~q which has Members: ~q~n', [Class, Miembros]),
+            % Busca la propiedad en la jerarquía de clases (padre si es necesario)
+            check_property_with_inheritance(Prop, Class, Top, KB, InitialValue),
+            % Para cada instancia, asigna el valor heredado o el valor del atributo
+            member([id=>Id, Propiedades, _], Miembros),
+            % Desempaquetar los atributos para buscar la propiedad
+            flatten(Propiedades, FlatAttributes),
+            % Sobrescribir el valor si la propiedad está definida en los atributos de la instancia
+            (   member(Prop=>AttributeValue, FlatAttributes) 
+                -> Value = AttributeValue
+            ;   Value = InitialValue
+            )
+        ),
+        ResultUnfiltered
+    ), 
+	debug(prop_ext, 'ResultUnfiltered: ~q~n', [ResultUnfiltered]),
+	%filter_list(ResultUnfiltered, ResultUnsorted),
+	%debug(prop_ext, 'ResultUnSorted: ~q~n', [ResultUnSorted]),
+	% Ordenar los resultados por Id
+	%keysort(ResultUnfiltered, ResultUnSort),
+	filter_list(ResultUnfiltered, ResultUnSort),
+    % Procesar ResultUnfiltered para eliminar duplicados: conservar el que tenga 'yes' si hay 'no' para el mismo Id
+    remove_duplicates_with_preference(ResultUnSort, Res).
 
-	% iterar_clases(KB) y calcular unicamente subclases de la clase de interes
-	%nl,write('#######Calcular subclases de '), write(Clase),write(' ###########'),nl,
-	%print_message(informational,'#####Calculating subclasses of ~q...#####~n'-[Clase]),
-	%print_message(informational,'Calculating subclasses of: ~q'-[Clase]),
-	%print_message(informational, '#######Calcular subclases de  ###########'-[Clase]),
-	%print_message(warning, 'This is a warning about: ~w.~n'-[Clase]),
-
-	%format('Calculating subclasses of: ~q~n', [Clase]),
-	% metodo recursivo:
-	% iterar_subclases(KB, Clase, []),
-
-	%metodo recursivo utilizando findall y member
-	%iterar_subclases_1(Clase, KB, Res),
-	% metodo de consulta por hechos.
-	%write('before extracting facts...'),nl,
-	%extract_facts(KB,Facts),
-	%write('Facts: '),write(Facts),nl,
-	
-	%findall(X,member(X,KB),Facts),
-	%findall(X, member('class(aves,top,[nadan],[],[])',KB),Facts),
-	%member('class(aves,top,[nadan],[],[])', KB).
-
-	%nl,write('Result Facts using findAll : '), write(Facts),
-	%nl,write('Res after recursive rounds: '), write(Res),
-	%nl,write('class_extension predicate '),write(Clase),write(' STOP...'),nl.
-	debug(class_extension, 'class_extension predicate STOP...~n',[]).
-
-property_extension(Prop,KB,Res):-
-	write('property_extension predicate start...'),nl,
-	write('KB: '), write(KB),nl,
-	write('Property: '), write(Prop),nl,
-	
-	write('proeperty_extension predicate stop...'),nl.
+	debug(prop_ext, 'propperty_extension predicate STOP..~n').
+% ========================================================================
 
 % El resto de los predicados de consultar van aquí abajo	
 

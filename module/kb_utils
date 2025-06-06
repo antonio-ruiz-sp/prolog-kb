@@ -2,20 +2,42 @@
     class_info/1,
     extract_class_element/3,
     iterate_kb/1,
-    iterate_sublcasses/3
+    iterate_sublcasses/3,
+    find_subclass_instances/3,
+    %ResultUnfiltered/5,
+    remove_duplicates_with_preference/2,
+    check_property_with_inheritance/5,
+    filter_list/2
 ]).
 
-% Example class_info/1: Prints information about a class term
-class_info(class(Name, Parent, Properties, Relations, Members)) :-
-    format('Class: ~w~nParent: ~w~nProperties: ~w~nRelations: ~w~nMembers: ~w~n',
-           [Name, Parent, Properties, Relations, Members]).
+%%%- Formato de la KB:
+%%%%- La KB se conforma de una lista de clases, cada una de las cuales tiene un nombre, una clase madre, una lista de propiedades, una lista de relaciones y una lista de objetos.
+%%%%- KB = [class(top, none, [], [], []), class(aves, top, [vuelan], [], []), class(peces, top, [nadan], [], []), class(mamiferos, top, [], [], []), class(aguilas, aves, [], [], [[id=>pedro, [...]|...]]), class(pinguinos, aves, [], [], [[... => ...|...]]), class(felinos, mamiferos, [], [], [[...|...]])],
+
+%%%- Formato de los elementos de la lista (functores)
+%%%%- class(nombre_de_la_clase, clase_madre, lista_de_propiedades_de_la_clase, lista_de_relaciones_de_la_clase, lista_de_objetos)
+
+%%%- Formato de la lista de objetos se conforma a su vez de listas del siguiente modo:
+%%%%- [id=>nombre_del_objeto, lista_de_propiedades_del_objeto, lista_de_relacion
+
+% Example class_info/1: Prints information about a Class term
+class_info(class(Name, Top, Propiedades, Relations, Miembros)) :-
+    debug(kb_ut, 'class_info START...~n', []),
+    debug(kb_ut, 'Info for class class: ~w', [Name]),
+    debug(kb_ut, '--------------------------------~n',[]),    
+    format('Class: ~w~nTop: ~w~nPropiedades: ~w~nRelaciones: ~w~nMiembros: ~w~n--------------------------------~n',
+           [Name, Top, Propiedades, Relations, Miembros]),
+
+	
+    debug(kb_ut, 'class_info STOP...~n',[]).
+
 class_info(Other) :-
-    format('Unknown class structure: ~w~n', [Other]).
+    format('Clase no cumple con la estructura esperada: ~w~n', [Other]).
 
 % extract_class_element(+Class, +Element, -Value)
 % Extracts a specific element from a class term
 extract_class_element(class(Name, _, _, _, _), name, Name).
-extract_class_element(class(_, Parent, _, _, _), parent, Parent).
+extract_class_element(class(_, Top, _, _, _), parent, Top).
 extract_class_element(class(_, _, Properties, _, _), properties, Properties).
 extract_class_element(class(_, _, _, Relations, _), relations, Relations).
 extract_class_element(class(_, _, _, _, Members), members, Members).
@@ -23,11 +45,110 @@ extract_class_element(class(_, _, _, _, Members), members, Members).
 % iterate_kb(+KB)
 % Iterates over all classes in the KB and prints their info
 iterate_kb([]).
-iterate_kb([Class|Rest]) :-
-    class_info(Class),
-    iterate_kb(Rest).
+iterate_kb([H|T]) :-
+    class_info(H),
+    iterate_kb(T),
+
+	nl,write('iterar_clase predicate TODOS los elementos '),write(CN),write(' STOP...'),nl.
 
 % iterate_sublcasses(+ClassName, +KB, -Subclasses)
 % Finds all subclasses of ClassName in KB
 iterate_sublcasses(ClassName, KB, Subclasses) :-
     findall(Sub, (member(class(Sub, ClassName, _, _, _), KB)), Subclasses).
+
+% extract_facts(+List, -Facts)
+% Extracts unique facts from a list, avoiding duplicates    
+extract_facts(List,Facts):-
+	extract_facts_helper_using_acc(List,[],Facts).
+
+extract_facts_helper_using_acc([],Facts,Facts). %base case
+extract_facts_helper_using_acc([H|T],Acc,Facts):-
+	(
+	write('Inside extract_facts_helper_using_acc...'),nl,
+	\+ member(H, Acc)->
+	append(Acc,[H], NewFacts)
+	;NewFacts=Acc
+	),
+	extract_facts_helper_using_acc(T,NewFacts,Facts).
+
+
+% Predicado auxiliar para verificar si la propiedad se encuentra en la clase actual o en la clase padre en caso de haber
+check_property_with_inheritance(Property, Class, ParentClass, KB, Value) :-
+    debug(kb_ut, 'check_property_with_inheritance START...~n', []),
+    debug(kb_ut, 'Checking property: ~q in class: ~w with parent: ~q~n', [Property, Class, ParentClass]),
+    % Busca la clase actual en la KB
+    % Verifica si la propiedad está en la lista de propiedades de la clase actual o en la clase padre en caso de ser necesario
+    debug(kb_ut, 'Searching in class: ~w for property:~q...~n', [Class, Property]),
+    %(   Class \= none,
+    %    member(class(Class, ParentClass, Properties, _, _), KB) ->
+    %    debug(kb_ut, 'Class found in KB: ~w with properties: ~w~n', [Class, Properties]),
+        % Verifica si la propiedad está en las propiedades de la clase actual
+    %    (   member([Property, 0], Properties) % Propiedad afirmativa en la clase actual
+
+    (   member(class(Class, _, Properties, _, _), KB),
+        debug(kb_ut, 'Class found in KB: ~w with properties: ~w~n', [Class, Properties]),
+        (   member(Property, Properties) % Propiedad afirmativa en la clase actual
+        ->  Value = yes,
+            debug(kb_ut, 'Property: ~q found in class: ~w so Value is yes~n', [Property, Class])    
+        ;   member(not(Property), Properties) % Propiedad negada en la clase actual
+        ->  Value = no,
+            debug(kb_ut, 'Property: ~q found as negated in class: ~w so Value is no~n', [Property, Class])  
+        ;   % Si no está en la clase actual y hay una clase padre, verifica en la clase padre
+            ParentClass \= none,
+            debug(kb_ut, 'Property: ~q not found in class: ~w, checking parent class: ~w~n', [Property, Class, ParentClass]),
+            check_property_with_inheritance(Property, ParentClass, _, KB, Value)
+        )
+    ;   % Si no se encuentra la propiedad en ninguna parte de la jerarquía, asigna 'no'
+        debug(kb_ut, 'Property: ~q not found in class: ~w or its parent: ~q~n', [Property, Class, ParentClass]),
+        Value = no
+    ),
+    debug(kb_ut,'At the end of check_property_with_Inheritance, final value of Value: ~w~n', [Value]),
+    debug(kb_ut, 'check_property_with_inheritance STOP...~n', []).
+
+% Predicado auxiliar para eliminar duplicados, manteniendo condiciones específicas
+remove_duplicates_with_preference(Unfiltered, Filtered) :-
+    % Agrupar por Id y seleccionar el valor preferido según las reglas
+    findall(
+        Id:FinalValue,
+        (
+            member(Id:_, Unfiltered), % Buscar cada Id único en Unfiltered
+            findall(Value, member(Id:Value, Unfiltered), Values), % Filtrar todos los valores asociados a ese Id
+            % Aplicar las reglas para seleccionar el valor final
+            process_values(Values, FinalValue)
+        ),
+        FilteredUnsorted
+    ),
+    % Remover duplicados en caso de múltiples Id:Value idénticos
+    sort(FilteredUnsorted, Filtered).
+
+% Procesar la lista de valores asociada a un Id para seleccionar el valor final
+process_values(Values, FinalValue) :-
+    exclude(==(no), Values, NonNoValues), % Excluir 'no' de la lista
+    exclude(==(yes), NonNoValues, FilteredValues), % Excluir 'yes' de la lista
+    (
+        FilteredValues \= [] % Si hay valores diferentes de 'yes' o 'no', seleccionarlos
+        -> list_to_set(FilteredValues, [FinalValue|_]) % Eliminar duplicados, quedarse con el primero
+        ; NonNoValues \= [] % Si no hay valores diferentes, pero hay 'yes', seleccionarlo
+        -> FinalValue = yes
+        ; FinalValue = no % Si todo es 'no', selecciona 'no'
+    ).
+
+filter_list(List, Result) :-
+    (   has_other_values(List) ->
+        exclude(yes_no_pair, List, Result)
+    ;   Result = List
+    ).
+
+% Verifica si hay algún valor distinto de 'yes' o 'no'
+has_other_values([]) :- false.
+has_other_values([_:Value | Rest]) :-
+    (   Value \= yes, Value \= no ->
+        true
+    ;   has_other_values(Rest)
+    ).
+
+% Predicado auxiliar para excluir pares con valores 'yes' o 'no'
+yes_no_pair(_Key:Value) :-
+    Value = yes;
+    Value = no.
+
