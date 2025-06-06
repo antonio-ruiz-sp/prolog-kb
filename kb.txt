@@ -1,9 +1,9 @@
 [
 	class(top, none, [], [], []),
 	class(aves, top, [vuelan], [], []),
-	class(peces, top, [nadan], [], []),
+	class(peces, top, [nadan], [], [[id=>nemo,[tam=>'-'],[[amigo=>arturo]]]]),
 	class(mamiferos, top, [], [], []),
-	class(aguilas, aves, [], [], [[id=>pedro, [tam=>'-'], [not(amigo=>arturo)]]]),
+	class(aguilas, aves, [], [], [[id=>pedro, [tam=>'+'], [not(amigo=>arturo)]]]),
 	class(pinguinos, aves, [not(vuelan)], [], [[id=>arturo, [], [amigo=>pedro]]]),
 	class(felinos, mamiferos, [], [], [[id=>leonardo, [], []]])
 	

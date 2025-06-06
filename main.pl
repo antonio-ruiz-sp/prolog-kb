@@ -270,15 +270,47 @@ property_extension(Prop, KB, Res):-
         ResultUnfiltered
     ), 
 	debug(prop_ext, 'ResultUnfiltered: ~q~n', [ResultUnfiltered]),
-	%filter_list(ResultUnfiltered, ResultUnsorted),
-	%debug(prop_ext, 'ResultUnSorted: ~q~n', [ResultUnSorted]),
-	% Ordenar los resultados por Id
-	%keysort(ResultUnfiltered, ResultUnSort),
 	filter_list(ResultUnfiltered, ResultUnSort),
     % Procesar ResultUnfiltered para eliminar duplicados: conservar el que tenga 'yes' si hay 'no' para el mismo Id
     remove_duplicates_with_preference(ResultUnSort, Res).
 
 	debug(prop_ext, 'propperty_extension predicate STOP..~n').
+% ========================================================================
+
+relation_extension(Rel, KB, Res):-
+	debug(relation_ext, 'Starting relation_extension predicate START...~n',[]),
+	debug(relation_ext, 'KB: ~q~n', [KB]),
+	debug(relation_ext, 'Relacion: ~q~n', [Rel]),	
+	
+	findall(
+		Id:Value, % Lista en formato Id:Value
+		(
+			% Iterar las clases en la KB
+			member(class(Class, Top, _, Relations, Miembros), KB),
+			debug(relation_ext, '***Processing class: ~q which has Members: ~q and Relations: ~q~n', [Class, Miembros, Relations]),
+			% Busca la relación en la jerarquía de clases (padre si es necesario)
+			check_relation_with_inheritance(Rel, Class, Top, KB, Value),
+			debug(relation_ext, 'Value after checking inheritance: ~q~n', [Value]),
+			% Para cada instancia, asigna el valor heredado o el valor del atributo
+			member([id=>Id, _, Relaciones], Miembros),
+			% Desempaquetar las relaciones para buscar la relación
+			flatten(Relaciones, FlatRelations),
+			debug(relation_ext, 'FlatRelations: ~q~n', [FlatRelations]),	
+			% Sobrescribir el valor si la relación está definida en las relaciones de la instancia
+			(   member(Rel=>Value, FlatRelations) 
+				-> true
+			;   Value = none
+			)
+		),
+		ResultUnfiltered
+	), 
+	debug(relation_ext, 'ResultUnfiltered: ~q~n', [ResultUnfiltered]),
+
+	filter_list(ResultUnfiltered, ResultUnSort),
+	% Procesar ResultUnfiltered para eliminar duplicados: conservar el que tenga 'yes' si hay 'no' para el mismo Id
+	remove_duplicates_with_preference(ResultUnSort, Res).
+
+	debug(relation_ext, 'relation_extension predicate STOP..~n').
 % ========================================================================
 
 % El resto de los predicados de consultar van aquí abajo	

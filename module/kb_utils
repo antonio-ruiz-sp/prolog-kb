@@ -7,7 +7,8 @@
     %ResultUnfiltered/5,
     remove_duplicates_with_preference/2,
     check_property_with_inheritance/5,
-    filter_list/2
+    filter_list/2,
+    check_relation_with_inheritance/5
 ]).
 
 %%%- Formato de la KB:
@@ -151,4 +152,46 @@ has_other_values([_:Value | Rest]) :-
 yes_no_pair(_Key:Value) :-
     Value = yes;
     Value = no.
+
+% Predicado auxiliar para verificar la propiedad en la clase actual o en la clase padre si es necesario
+check_relation_with_inheritance(Relation, Class, ParentClass, KB, Value) :-
+    debug(kb_ut, 'check_relation_with_inheritance START...~n', []),
+    debug(kb_ut, 'Checking relation: ~q in class: ~w with parent: ~q~n', [Relation, Class, ParentClass]),
+    % Nota: Formato de la lista de objetos se conforma a su vez de listas del siguiente modo:
+    % [id=>nombre_del_objeto, lista_de_propiedades_del_objeto, lista_de_relacion
+    % Verifica si la propiedad está en la lista de propiedades de la clase actual y tambien en las relaciones de los miembros de la clase
+    (   member(class(Class, _, _, Relations, Members), KB),
+        (  (member(Relation=>RelationValue, Relations);check_in_members(Relation, Members)) % Propiedad afirmativa en la clase actual o en alguno de los miembros
+        ->  Value = RelationValue
+        ;   member([not(Relation=>RelationValue), 0], Relations) % Propiedad negada en la clase actual
+        ->  Value = RelationValue
+        ;   % Si no está en la clase actual y hay una clase padre, verifica en la clase padre
+            ParentClass \= none,
+            check_relation_with_inheritance(Relation, ParentClass, _, KB, Value)
+        )
+    ;   % Si no se encuentra la propiedad en ninguna parte de la jerarquía, asigna 'no'
+        Value = no
+    ),
+    debug(kb_ut, 'At the end of check_relation_with_inheritance, final value of Value: ~w~n', [Value]).
+
+% Predicado auxiliar para verificar si la relación está en alguno de los miembros de la clase    
+check_in_members(_, []) :- 
+    debug(kb_ut, 'check_in_members: No members to check.~n', []),
+    false. % Si no hay miembros, retorna false.
+check_in_members(Relation, Members) :-
+    debug(kb_ut, 'check_in_members START...~n', []),
+    debug(kb_ut, 'Checking Relation:~q in Members: ~q...~n', [Relation, Members]),
+    member(Member, Members)
+    -> (
+        debug(kb_ut, 'Checking Member:~q...~n', [Member]),
+        Member = [Id=>_, Relations|_],
+        debug(kb_ut, 'Member ID:~q with Relations:~q~n', [Id, Relations]),
+        (   member(Relation=>RelationValue, Relations) % Verifica si la relación está en las relaciones del miembro
+        ->  debug(kb_ut, 'Relation:~q found in Member:~q with value:~q~n', [Relation, Member, RelationValue]),
+            true
+        ;   debug(kb_ut, 'Relation:~q not found in Member:~q~n', [Relation, Member]),
+            false
+        )
+    ),
+    debug(kb_ut, 'check_in_members STOP...~n', []).
 
