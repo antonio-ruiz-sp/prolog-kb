@@ -134,12 +134,6 @@ process_values(Values, FinalValue) :-
         ; FinalValue = no % Si todo es 'no', selecciona 'no'
     ).
 
-filter_list(List, Result) :-
-    (   has_other_values(List) ->
-        exclude(yes_no_pair, List, Result)
-    ;   Result = List
-    ).
-
 % Verifica si hay algún valor distinto de 'yes' o 'no'
 has_other_values([]) :- false.
 has_other_values([_:Value | Rest]) :-
@@ -165,7 +159,8 @@ check_relation_with_inheritance(Relation, Class, ParentClass, KB, Value) :-
         ->  Value = RelationValue
         ;   member(not(Relation=>RelationValue), Relations) % Propiedad negada en la clase actual
         ->  Value = RelationValue
-        ;   % Si no está en la clase actual o en la lista de miembros y hay una clase padre, verifica en la clase padre
+        ;   % Si no está en la clase actual o en la lista de miembros
+         y hay una clase padre, verifica en la clase padre
             ParentClass \= none,
             check_relation_with_inheritance(Relation, ParentClass, _, KB, Value)
         )
@@ -196,4 +191,12 @@ check_in_members(Relation, Members) :-
         )
     ),
     debug(kb_ut, 'check_in_members STOP...~n', []).
+
+	filter_list([], []):-
+        debug(kb_ut, 'filter_list: Empty list, returning empty filtered list.~n', []). 
+
+    filter_list([H|T], [H|FilteredTail]) :-
+        debug(kb_ut, 'filter_list: Checking element ~w...~n', [H]), 
+        \+ member(H, T), % H no está en la cola T
+        filter_list(T, FilteredTail).
 

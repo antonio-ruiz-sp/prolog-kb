@@ -312,7 +312,27 @@ relation_extension(Rel, KB, Res):-
 
 	debug(relation_ext, 'relation_extension predicate STOP..~n').
 % ========================================================================
-properties_of_individual(obj,KB, Res).
+properties_of_individual(obj,KB, Res):-
+	debug(props_of_individual, 'Starting properties_of_individual predicate START...~n',[]),
+	debug(props_of_individual, 'KB: ~q~n', [KB]),
+	debug(props_of_individual, 'Objeto: ~q~n', [obj]),
+
+	findall(
+		Id:Value, % Lista en formato Id:Value
+		(
+			member(class(_, _, Properties, _, Members), KB),
+			member([id=>Id, Props, _], Members),
+			flatten(Props, FlatProps),
+			member(obj=>Value, FlatProps)
+		),
+		ResultUnfiltered
+	), 
+	debug(props_of_individual, 'ResultUnfiltered: ~q~n', [ResultUnfiltered]),
+	filter_list(ResultUnfiltered, Res).
+
+	debug(props_of_individual, 'properties_of_individual predicate STOP..~n').	
+	
+
 % ========================================================================
 class_properties(obj,KB, Res).
 % ========================================================================
