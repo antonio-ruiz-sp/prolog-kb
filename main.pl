@@ -233,7 +233,7 @@ class_extension(Clase, KB, Res):-
 
 	debug(class_ext, 'class_extension predicate STOP...~n',[]).
 
-% Predicado auxiliar para encontrar las subclases de una clase.
+% Predicado auxiliar para  las subclases de una clase.
 find_subclass_instances([], _, []):-
 	debug(class_ext, 'Base Case.~n',[]).
 
@@ -286,6 +286,7 @@ relation_extension(Rel, KB, Res):-
 		Id:Value, % Lista en formato Id:Value
 		(
 			% Iterar las clases en la KB
+			%member(class(Class, Top, _, Relations, Miembros), KB),
 			member(class(Class, Top, _, Relations, Miembros), KB),
 			debug(relation_ext, '***Processing class: ~q which has Members: ~q and Relations: ~q~n', [Class, Miembros, Relations]),
 			% Busca la relación en la jerarquía de clases (padre si es necesario)
@@ -373,8 +374,8 @@ add_class(ClassName, ParentClass, CurrentKB, NewKB) :-
     NewClass = class(ClassName, ParentClass, [], [], []),
     % Añadirla a la KB
     
-    append(CurrentKB, [NewClass], NewKB),
-    save_kb('new_kb_1_1.txt',NewKB).
+    append(CurrentKB, [NewClass], NewKB).
+    %save_kb('new_kb_1_1.txt',NewKB).
 
 
 
@@ -396,8 +397,8 @@ add_object(ObjectName, ClassName, CurrentKB, NewKB) :-
     % 4. Reemplazar MANTENIENDO TODOS los atributos originales
     replace_class(ClassName, 
                  class(ClassName, Parent, Props, Methods, [NewInstance|Instances]), % ← Todos los campos preservados
-                 CurrentKB, NewKB),
-    save_kb('new_kb_1_1.txt',NewKB).
+                 CurrentKB, NewKB).
+    %save_kb('new_kb_1_1.txt',NewKB).
 
 
 
@@ -417,8 +418,8 @@ add_class_property(ClassName, Property, Value, CurrentKB, NewKB) :-
     % Reconstruir la clase con la nueva propiedad
     replace_class(ClassName, 
                 class(ClassName, Parent, NewProps, Methods, Instances),
-                CurrentKB, NewKB),
-    save_kb('new_kb_1_1.txt',NewKB).                
+                CurrentKB, NewKB).
+    %save_kb('new_kb_1_1.txt',NewKB).                
 
 
 
@@ -449,8 +450,8 @@ add_object_property(ObjectName, Property, Value, CurrentKB, NewKB) :-
     % Actualizar la clase con el objeto modificado
     replace_class(ClassName,
                 class(ClassName, Parent, Props, Methods, NewInstances),
-                CurrentKB, NewKB),
-    save_kb('new_kb_1_1.txt',NewKB).
+                CurrentKB, NewKB).
+    %save_kb('new_kb_1_1.txt',NewKB).
 
 
 %--------------------------------------------------
@@ -473,8 +474,8 @@ add_class_relation(ClassName, RelationName, RelatedClasses, CurrentKB, NewKB) :-
     % Reconstruir la clase con la nueva relación
     replace_class(ClassName, 
                 class(ClassName, Parent, Props, NewMethods, Instances),
-                CurrentKB, NewKB),
-    save_kb('new_kb_1_1.txt',NewKB).
+                CurrentKB, NewKB).
+    %save_kb('new_kb_1_1.txt',NewKB).
 
 
 %--------------------------------------------------
@@ -504,24 +505,8 @@ add_object_relation(ObjectName, RelationName, RelatedObjects, CurrentKB, NewKB) 
     % Actualizar la clase con el objeto modificado
     replace_class(ClassName,
                 class(ClassName, Parent, Props, Methods, NewInstances),
-                CurrentKB, NewKB),
-    save_kb('new_kb_1_1.txt',NewKB).            
-
-%--------------------------------------------------
-% replace_object/4 - Reemplazar objeto en una lista de instancias
-%--------------------------------------------------
-replace_object(_, _, [], []).
-replace_object(ObjectName, NewObject, [[id=>ObjectName|_]|Rest], [NewObject|Rest]).
-replace_object(ObjectName, NewObject, [Obj|Rest], [Obj|NewRest]) :-
-    Obj = [id=>Name|_],
-    Name \= ObjectName,
-    replace_object(ObjectName, NewObject, Rest, NewRest).
-
-% Reemplazar una clase en la KB
-replace_class(_, _, [], []) :- !.
-replace_class(ClassName, NewClass, [class(ClassName,_,_,_,_)|Rest], [NewClass|Rest]) :- !.
-replace_class(ClassName, NewClass, [Class|Rest], [Class|NewRest]) :-
-    replace_class(ClassName, NewClass, Rest, NewRest).
+                CurrentKB, NewKB).
+    %save_kb('new_kb_1_1.txt',NewKB).
 
 %-------------------------------------------------------
 % Predicados para eliminar:  
@@ -544,8 +529,23 @@ rm_class(ClassName, CurrentKB, NewKB) :-
 % Predicado auxiliar para filtrar clases
 is_class(ClassName, class(ClassName, _, _, _, _)).
 
+% Limpiar referencias a objetos de la clase eliminada
+clean_class_references(_, [], []).
+clean_class_references(ClassName, [class(C,P,Props,Methods,Instances)|Rest], 
+                      [class(C,P,Props,NewMethods,NewInstances)|NewRest]) :-
+    % Limpiar relaciones en métodos
+    clean_relations(ClassName, Methods, NewMethods),
+    
+    % Limpiar relaciones en instancias
+    clean_object_relations(ClassName, Instances, NewInstances),
+    
+    % Continuar con el resto
+    clean_class_references(ClassName, Rest, NewRest).
 
-% Eliminar un objeto de cualquier clase
+
+%--------------------------------------------------
+% Eliminar un objeto
+%--------------------------------------------------
 rm_object(ObjectName, CurrentKB, NewKB) :-
     % Encontrar y eliminar el objeto de su clase
     remove_object_from_class(ObjectName, CurrentKB, TempKB),
@@ -565,18 +565,18 @@ remove_object_from_class(ObjectName, CurrentKB, NewKB) :-
 % Predicado auxiliar para filtrar objetos
 is_object(ObjectName, [id=>ObjectName|_]).
 
-% Limpiar referencias a objetos de la clase eliminada
-clean_class_references(_, [], []).
-clean_class_references(ClassName, [class(C,P,Props,Methods,Instances)|Rest], 
-                      [class(C,P,Props,NewMethods,NewInstances)|NewRest]) :-
+% Limpiar referencias al objeto eliminado
+clean_object_references(_, [], []).
+clean_object_references(ObjectName, [class(C,P,Props,Methods,Instances)|Rest], 
+                       [class(C,P,Props,NewMethods,NewInstances)|NewRest]) :-
     % Limpiar relaciones en métodos
-    clean_relations(ClassName, Methods, NewMethods),
+    clean_object_in_relations(ObjectName, Methods, NewMethods),
     
     % Limpiar relaciones en instancias
-    clean_object_relations(ClassName, Instances, NewInstances),
+    clean_object_in_object_relations(ObjectName, Instances, NewInstances),
     
     % Continuar con el resto
-    clean_class_references(ClassName, Rest, NewRest).
+    clean_object_references(ObjectName, Rest, NewRest).
 
 % Limpiar relaciones de clase
 clean_relations(ClassName, Methods, NewMethods) :-
@@ -694,11 +694,6 @@ rm_object_relation(ObjectName, RelationName, CurrentKB, NewKB) :-
                 class(ClassName, Parent, Props, Methods, NewInstances),
                 CurrentKB, NewKB).
 
-
-%%-------------------------------------------------------
-%% Predicados para modificar:  
-%%-------------------------------------------------------
-
 %--------------------------------------------------
 % Cambiar nombre de una clase (y actualizar referencias)
 %--------------------------------------------------
@@ -814,3 +809,22 @@ update_relations_in_list(OldName, NewName, [Relation|Rest], [NewRelation|NewRest
     NewRelation =.. [RelName|NewArgs],
     update_relations_in_list(OldName, NewName, Rest, NewRest).
 update_relations_in_list(_, _, [], []).
+
+%--------------------------------------------------
+% replace_object/4 - Reemplazar objeto en una lista de instancias
+%--------------------------------------------------
+replace_object(_, _, [], []).
+replace_object(ObjectName, NewObject, [[id=>ObjectName|_]|Rest], [NewObject|Rest]).
+replace_object(ObjectName, NewObject, [Obj|Rest], [Obj|NewRest]) :-
+    Obj = [id=>Name|_],
+    Name \= ObjectName,
+    replace_object(ObjectName, NewObject, Rest, NewRest).
+
+% Reemplazar una clase en la KB
+replace_class(_, _, [], []) :- !.
+replace_class(ClassName, NewClass, [class(ClassName,_,_,_,_)|Rest], [NewClass|Rest]) :- !.
+replace_class(ClassName, NewClass, [Class|Rest], [Class|NewRest]) :-
+    replace_class(ClassName, NewClass, Rest, NewRest).        
+
+
+
