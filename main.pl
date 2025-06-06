@@ -307,13 +307,47 @@ relation_extension(Rel, KB, Res):-
 	), 
 	debug(relation_ext, 'ResultUnfiltered: ~q~n', [ResultUnfiltered]),
 
-	filter_list(ResultUnfiltered, ResultUnSort),
+	filter_list1(ResultUnfiltered, ResultUnSort),
 	% Procesar ResultUnfiltered para eliminar duplicados: conservar el que tenga 'yes' si hay 'no' para el mismo Id
 	remove_duplicates_with_preference(ResultUnSort, Res).
 
-	%debug(relation_ext, 'relation_extension predicate STOP..~n').
+	debug(relation_ext, 'relation_extension predicate STOP..~n').
+
+	filter_list1([], []).
+	filter_list1([H|T], [H|Filtered]) :-
+	% Verifica si H es una lista con al menos dos elementos
+	(   is_list(H), length(H, Len), Len >= 2
+	->  % Si es así, verifica si el primer elemento es un ID y el segundo es un valor
+		H = [Id, Value|_],
+		% Si el valor no es 'none', lo incluye en la lista filtrada
+		Value \= none
+	;   % Si no es una lista válida, lo omite
+		Filtered = T
+	),
+	filter_list1(T, Filtered).
+
 % ========================================================================
-properties_of_individual(obj,KB, Res).
+properties_of_individual(obj,KB, Res):-
+	debug(props_ind, 'Starting properties_of_individual predicate START...~n',[]),
+	debug(props_ind, 'KB: ~q~n', [KB]),
+	debug(props_ind, 'Objeto: ~q~n', [obj]),
+
+	findall(
+		Id:Value, % Lista en formato Id:Value
+		(
+			member(class(_, _, Properties, _, Members), KB),
+			member([id=>Id, Props, _], Members),
+			flatten(Props, FlatProps),
+			member(obj=>Value, FlatProps)
+		),
+		ResultUnfiltered
+	), 
+	debug(props_ind, 'ResultUnfiltered: ~q~n', [ResultUnfiltered]),
+	filter_list(ResultUnfiltered, Res).
+
+	debug(props_ind, 'properties_of_individual predicate STOP..~n').	
+	
+
 % ========================================================================
 class_properties(obj,KB, Res).
 % ========================================================================
