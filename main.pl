@@ -312,8 +312,13 @@ relation_extension(Rel, KB, Res):-
 
 	debug(relation_ext, 'relation_extension predicate STOP..~n').
 % ========================================================================
-
-% El resto de los predicados de consultar van aquí abajo	
+properties_of_individual(obj,KB, Res).
+% ========================================================================
+class_properties(obj,KB, Res).
+% ========================================================================
+relations_of_individual(obj, KB, Res).
+% ========================================================================
+class_relations(class, KB, Res).
 
 
 %%-------------------------------------------------------
