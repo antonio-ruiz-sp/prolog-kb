@@ -163,9 +163,9 @@ check_relation_with_inheritance(Relation, Class, ParentClass, KB, Value) :-
     (   member(class(Class, _, _, Relations, Members), KB),
         (  (member(Relation=>RelationValue, Relations);check_in_members(Relation, Members)) % Propiedad afirmativa en la clase actual o en alguno de los miembros
         ->  Value = RelationValue
-        ;   member([not(Relation=>RelationValue), 0], Relations) % Propiedad negada en la clase actual
+        ;   member(not(Relation=>RelationValue), Relations) % Propiedad negada en la clase actual
         ->  Value = RelationValue
-        ;   % Si no está en la clase actual y hay una clase padre, verifica en la clase padre
+        ;   % Si no está en la clase actual o en la lista de miembros y hay una clase padre, verifica en la clase padre
             ParentClass \= none,
             check_relation_with_inheritance(Relation, ParentClass, _, KB, Value)
         )
@@ -178,15 +178,17 @@ check_relation_with_inheritance(Relation, Class, ParentClass, KB, Value) :-
 check_in_members(_, []) :- 
     debug(kb_ut, 'check_in_members: No members to check.~n', []),
     false. % Si no hay miembros, retorna false.
+
 check_in_members(Relation, Members) :-
     debug(kb_ut, 'check_in_members START...~n', []),
     debug(kb_ut, 'Checking Relation:~q in Members: ~q...~n', [Relation, Members]),
     member(Member, Members)
     -> (
         debug(kb_ut, 'Checking Member:~q...~n', [Member]),
-        Member = [Id=>_, Relations|_],
+        Member = [Id=>_,_, Relations|_],
         debug(kb_ut, 'Member ID:~q with Relations:~q~n', [Id, Relations]),
-        (   member(Relation=>RelationValue, Relations) % Verifica si la relación está en las relaciones del miembro
+        member(Relation=>RelationValue, Relations) % Verifica si la relación está en las relaciones del miembro
+        (   member(Relation=>RelationValue, Relation) % Verifica si la relación está en las relaciones del miembro
         ->  debug(kb_ut, 'Relation:~q found in Member:~q with value:~q~n', [Relation, Member, RelationValue]),
             true
         ;   debug(kb_ut, 'Relation:~q not found in Member:~q~n', [Relation, Member]),
