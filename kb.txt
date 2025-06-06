@@ -5,6 +5,6 @@
 	class(mamiferos, top, [], [], []),
 	class(aguilas, aves, [], [], [[id=>pedro, [tam=>'+'], [not(amigo=>arturo)]]]),
 	class(pinguinos, aves, [not(vuelan)], [], [[id=>arturo, [], [amigo=>pedro]]]),
-	class(felinos, mamiferos, [], [], [[id=>leonardo, [], []]])
+	class(felinos, mamiferos, [], [], [[id=>leonardo, [], [come=>nemo]]])
 	
 ]
